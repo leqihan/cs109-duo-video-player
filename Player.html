@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>CS109</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            background-image: linear-gradient(to bottom, #333, #111);
+            height: 100vh;
+            width: 100%;
+            font-family: "Calibri", "Helvetica", "Tahoma";
+            font-size: 14px;
+        }
+        a:link, a:visited, a:hover, a:active {
+            color: #999;
+        }
+        article {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+        #controls {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 38px;
+            padding: 8px;
+
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+
+            border-top: 1px #555 solid;
+            background: -ms-linear-gradient(top, #333 0%, #333 50%, #2b2b2b 50%, #2b2b2b 100%);
+            background: linear-gradient(to bottom, #333 0%, #333 50%, #2b2b2b 50%, #2b2b2b 100%);
+            opacity: 0;
+            transition: 0.3s;
+        }
+        #controls:hover {
+            opacity: 1;
+            z-index: 100;
+        }
+        .ctrl {
+            margin: 0 10px;
+            color: #eee;
+            cursor: pointer;
+        }
+        #scrub {
+            flex: 0 1 100%;
+        }
+        .playpause label {
+            display: block;
+            box-sizing: border-box;
+            width: 0;
+            height: 25px;
+            border-color: transparent transparent transparent #fff;
+            transition: 100ms all ease;
+            border-style: double;
+            border-width: 0px 0 0px 25px;
+            flex: 0 0 auto;
+        }
+        .playpause input[type="checkbox"] {
+            position: absolute;
+            left: -9999px;
+        }
+        .playpause input[type="checkbox"]:checked + label {
+            border-style: solid;
+            border-width: 12px 0 12px 22px;
+        }
+        #playlist_btn {
+            width: 25px;
+            height: 25px;
+            margin-bottom: -8px;
+        }
+        .play_ctrl img{
+            height: 25px;
+            margin-bottom: -3px;
+        }
+        #video_container {
+            position: relative;
+        }
+        .video_wrapper {
+            -moz-box-shadow: 2px 2px 6px #000;
+            -webkit-box-shadow: 2px 2px 6px #000;
+            box-shadow: 2px 2px 6px #000;
+            background: black;
+        }
+        .master_video {
+            height: 99vh;
+            max-width: calc(100vw - 150px);
+            margin-right: 100px;
+            z-index: 0;
+        }
+        .slave_video {
+            min-height: 180px;
+            height: 33vh;
+            position: absolute;
+            right: 0;
+            top: 35px;
+            opacity: 1;
+            transition: 0.3s;
+            z-index: 10;
+        }
+        .slave_video_rb {
+            top: unset;
+            bottom: 70px;
+        }
+        .slave_video:hover {
+            opacity: 0.1;
+        }
+        div.buttonPluginPopUp {
+            background-color: #333;
+            border: 1px solid #555;
+
+            position: fixed;
+            right: -99999px;
+            bottom: 62px;
+            max-height: calc(100vh - 160px);
+            min-width: 13rem;
+            overflow: auto;
+            /*transition: 0.3s;*/
+            color: #fff;
+            z-index: 1000;
+        }
+        div.playlist_show {
+            right: 3px;
+        }
+        .infoPubTitle {
+            line-height: 14px;
+            padding: 0em .25em 0em .25em;
+            font-size: 1em;
+            border-bottom: 1px solid #282828;
+            border-top: 1px solid #444;
+        }
+        .infoPubTitle span {
+            display: block;
+            color: #888;
+            width: 30rem;
+            white-space: nowrap;
+            overflow: hidden !important;
+            text-overflow: ellipsis;
+        }
+        .infoPubTitle span:hover {
+            text-overflow: clip;
+            white-space: normal;
+            color: #AAA;
+        }
+        .showInfoPluginButton {
+            color: white;
+        }
+        .showInfoPluginButton .infoItemButton {
+            padding: 0em .25em 0em .25em;
+            font-size: 1em;
+            border-bottom: 1px solid #282828;
+            border-top: 1px solid #444;
+        }
+        .showInfoPluginButton .infoItemButton:hover {
+            background-color: #555;
+            cursor: pointer;
+        }
+        #scrub {
+            -webkit-appearance: none;
+            height: 12px;
+            border-radius: 6px;   
+            background-image: linear-gradient(to bottom, #1f1f1f, #313131);
+            border: 1px solid #555;
+            outline: none;
+        }
+        #scrub::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%; 
+            background: #eee;
+            cursor: pointer;
+        }
+        #scrub::-moz-range-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%; 
+            background: #eee;
+            cursor: pointer;
+        }
+        #video_title {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 10px;
+            line-height: 30px;
+            text-align: center;
+            background-color: #333;
+            color: #eee;
+            z-index: 10000;
+            opacity: 0;
+            transition: 0.3s;
+        }
+        #video_title:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <article>
+        <div id="video_title">Currently playing...</div>
+        <div id="video_container">
+            <video preload="auto" id="one" class="master_video video_wrapper"></video>
+            <video preload="auto" id="two" class="slave_video video_wrapper"></video>
+        </div>
+        <div id="controls">
+            <div class="ctrl playpause">
+                <input type="checkbox" value="None" id="playpause" name="check" checked />
+                <label for="playpause" tabindex=1></label>
+            </div>
+            <span id="rewind" class="ctrl play_ctrl">
+                <img src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQyIDc5LjE2MDkyNCwgMjAxNy8wNy8xMy0wMTowNjozOSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTggKFdpbmRvd3MpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOkU2OTZCMDE3RDJBRTExRTg4M0Q2QTU3RDQwQUNGMzk0IiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOkU2OTZCMDE4RDJBRTExRTg4M0Q2QTU3RDQwQUNGMzk0Ij4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6RTY5NkIwMTVEMkFFMTFFODgzRDZBNTdENDBBQ0YzOTQiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6RTY5NkIwMTZEMkFFMTFFODgzRDZBNTdENDBBQ0YzOTQiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz732xV0AAAD90lEQVR42oyX+2sUVxTHZ2Znd7Mb4yO+30olrdEfrFUEldb+olBBUaLiP1D9RdBWRQQfCNHW+kIEEUHEVlQqgmJRUESlpVCxJAqBtBYVJanYtBJ8xGTj9HvD98rXwyzrhQ87c+be8733zrnnzIZJkgTSIv6+qWDL8F4Hx6Bk+iTlxkXGmDXOstLZtRDkjegScIL2cuNcy3F8oqvJcGCPOMzTXhJRN/g175eCn8E5UAdeiEBMX35cgdcl3Z6Iv10ywzztXZxIyFU42zLwNZglq2kK3m1dsoAq+u2WV5cJ8I4zIHTvmuRBQe7dsywYCm4l6a0NnAQrQU7GFujP32doiwIxlhMtUDgG25PKrQksd86Jihb5G1QSLZoVOLYk79fOggEiWs3JByrsVlQlW54mmpGJbRSBdrACHAHPjPjvYAzHxuIr8g6zZlVximi13yaymc5/EduH4JwR/42LUN/ZwASWW/U+MLmCqJ/oTnBUAsk/bzTi++zOBuadfgCaGSAf0V40ojmzgkF0lje7dkyEe8FneoJs9HqBOWCZsdlJBmXIcHI14K6IX9J+GtFhioPY2BrADrlfCG6CG2CdBGAs/X17CcZ7317AnbcvwAHwccr2zgQbQCe4Q9ssbuEpsI3Ot5qJDmTU+/alDzDdtt18+BqslcFuEleZnbrBr7T/AP6SfodAhwSZD8DTInzS948kp+4HM8An4LQkfNcWgrHgJzCMtmksEr5dAbVgqOR211qkz2gtEr46PQHtpoy5569kckXwXJJ/l/T/k/3GgUccF0g1U72+i5DCNXQcsnOnEfW1uGQm51s/9uk1Nb2/XPtSGUcsU65kfQUegIdgpxEt8LpDavg/YIQ4ncrfB6ZE1sn1ff81E3GGrv0BnoLvwLemiPs6nXBlrp0BC0A9bWvANXldWe7idBFuefsZJVFZC0aa42Azkqs49+TsXwTPGfHu2Ew16XOxRLQ7EfVp1UmLgstcu8Awk1CmSCr14s75In4oBKZ+3y6TufpydUTRkHn3unSe7csYC0VgcrbNzwU5v3tNofjUVif9SnDXF9hxtVltYKpT0aRZrU7rjejhStUpx3zaIPZvwPdguKmpaYViLDhuRN13Wj+OKZarTnmzlXvEwTyufK4EoduhCWA+8/xTI9rK5z71Rja4cia4XIchrDwJa3QoheE/MJEx0Fnmm+syGJUm6hYQyxd/SdJnFRPE52ATz7c7w6uYQAZKzq4xCeMx2AsO0m/RJCOX7d7E5u9IxAc+B7vk0ki7T4dtYDjH/MsJu4k1gx/BeclwVSmiff8oQvnTFjJ390qmirgDPbKiwaxUrbyfBP6muPVVEtEM7X07+78AAwAHQV9iEgf+2gAAAABJRU5ErkJggg==' />
+            </span>
+            <span id="forward" class="ctrl play_ctrl">
+                <img src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQyIDc5LjE2MDkyNCwgMjAxNy8wNy8xMy0wMTowNjozOSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTggKFdpbmRvd3MpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOkI1QjAyQURERDJBRTExRThBRjM4Q0MzMzg1MDVGMEU3IiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOkI1QjAyQURFRDJBRTExRThBRjM4Q0MzMzg1MDVGMEU3Ij4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6QjVCMDJBREJEMkFFMTFFOEFGMzhDQzMzODUwNUYwRTciIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6QjVCMDJBRENEMkFFMTFFOEFGMzhDQzMzODUwNUYwRTciLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz6wfZvMAAADwElEQVR42pSXa2iOYRjH3+d5n+fdwXGYNozSQiz5QIri4z5MpPDJNymHHAtfnPLBByUlx1qWEjkUSu0DW5FiSknJ5JjDFtukoWGbx//W/17/9+qZd+769Tzvteu6r/v0XP97QZIkGWkhn78L2GwL6NcvtixITFyWv5PQGGM6+xaLs29HwRqQE1tuCHE5DjDR2TinItArHRTR3iezcm08qAcPwXpQBn5KEpcgYl8+roTvfQPDwFKHoIjPDHG/S0AgNs+WJL89AxvACPZh40rYn//tfGL3kjWOPqkmKwa14CR4naS396BGYoKUpFnaQjubtKRLQUtSuJ0FwwskLeUz86+kbpYnkqG100OY6TAQeZv/Q8xEfsndyBpN573gKlgNHhVImkuZaaT77P8Qm+DLJuk9sEB86v9jpsVm6yJ/uOzJ3WGSXuaJVZ/94PwQksa07wFlMpDAHq7p4JskbUo5bG4ZK/0hGeST8QnGgmugFczVL0hH7J7HJelnMC3lOy6E31P3vhAs4SByurrqPBK8lcQHUzpdAQ7I7zpwB9wG2+Q7zZo4u53ZjDgtkqQ9oFoc53Hvu8Fj2uaDfnAB7GPcXpMg5hZMpc86DiLS0eySxC0S7JbtFmgDv3jCnf0ceCl+x0CXnIkcJ7UKdMqZ+esfiShUipK8koLvWh0L/BUwm7Y54K7E3AQbQTl4R6H4BZrBYopOj3eOJLBc3ttEtXpkcKXgG9+LwQ+JeU6/yUzsk3SSvBaJRnaLvYrPHiP2RXnSlq/Jw+nTb7TZTWgM+3Ir8NFNKBRNfi3OU80AS9hZl/i7WVSITw2fb0zsWtBKe72/leh15YE4TwcTJakX+YQzc+0iqAUzadvE/WyXOLeiZ8B2bsWLgWuUnEpXZT7Jyd4pquV9roAXYr/BSudOfLvosa1kvv9xtoB45TgsiTvAJFORZoEZRkqXUbPLJan/lLaC5aLTAwXFX0W8jE1ikfDtkjgPS6nZdlY602rp5wl1IE+dQhO826jTqRRpi1lY7N0qNn5r2cd9/j1KU6eAo3VcN8mbzH0qm1LHY9b7IxQbv32ruD2hDnYwPXV70mySfwcN3NPJslJVVKEsa7JvDUZSS3V1db9yZgZlvMClta9gJU9pG21LGNco+zpBZDJMU6co5WKWkaV6mpJ8M6igcCSUxpjX4ENyz7ZnIWfVKSMXcruHozmAC7xX91Liyjj7Dm5Necp93Cb9u7KB/NMWsNL0S6UKKRS9UtVGgSkUki+sXK6UfjB1PWJdT0RwAl/r/wgwAMuiWysW1/l/AAAAAElFTkSuQmCC' />
+            </span>
+            <span id="play_rate" class="ctrl" rate=1>1x</span>
+            <span id="position" class="ctrl">00:00</span>
+            <input type="range" value="0" id="scrub" class="ctrl" />
+            <span id="duration" class="ctrl">loading...</span>
+            <div id="playlist_btn" class="ctrl">
+                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Capa_1" x="0px" y="0px" viewBox="0 0 320 320" xml:space="preserve">
+                    <g>
+                        <g>
+                            <rect y="96" width="256" height="42.667" style="fill: rgb(255, 255, 255);"></rect>
+                        </g>
+                    </g>
+                    <g>
+                        <g>
+                            <rect y="10.667" width="256" height="42.667" style="fill: rgb(255, 255, 255);"></rect>
+                        </g>
+                    </g>
+                    <g>
+                        <g>
+                            <rect y="181.333" width="170.667" height="42.667" style="fill: rgb(255, 255, 255);"></rect>
+                        </g>
+                    </g>
+                    <g>
+                        <g>
+                            <polygon points="213.333,181.333 213.333,309.333 320,245.333   " style="fill: rgb(255, 255, 255);"></polygon>
+                        </g>
+                    </g>
+                </svg>
+            </div>
+        </div>
+        <div class="buttonPluginPopUp showInfoPluginButton" id="buttonPlugin13_container" style="display: block;">
+            <div id="dce-info-popup">
+                <div class="infoPubTitle">
+                    <span>CS109 Playlist</span>
+                    <span><a href="https://github.com/leqihan/cs109-duo-video-player/">Created by LeqiHan 2018</a></span>
+                </div>
+                <div class="infoItemButton">week02-lab01-pandas-python-github</div>
+                <div class="infoItemButton">week02-lecture02-web-scraping-regexp-reshaping-cleanup-pandas</div>
+                <div class="infoItemButton">week02-lecture03-exploratory-data-analysis</div>
+                <div class="infoItemButton">week03-lab02-scraping-pandas-python-viz</div>
+                <div class="infoItemButton">week03-lecture04-pandas-sql-grammar-of-data</div>
+                <div class="infoItemButton">week03-lecture05-statistical-models</div>
+                <div class="infoItemButton">week04-lab03-probability-distributions-frequentist-statistics</div>
+                <div class="infoItemButton">week04-lecture06-story-telling-effective-communication</div>
+                <div class="infoItemButton">week04-lecture07-bias-regression</div>
+                <div class="infoItemButton">week05-lab04-regression-logistic-regression-sklearn-statsmodels</div>
+                <div class="infoItemButton">week05-lecture08-more-regression</div>
+                <div class="infoItemButton">week05-lecture09-classification-knn-cv-dimensionality-reduction-pca-mds</div>
+                <div class="infoItemButton">week06-lab05-1-machine-learning-learning-a-model</div>
+                <div class="infoItemButton">week06-lab05-2-machine-learning-classification</div>
+                <div class="infoItemButton">week06-lecture10-svm-evaluation</div>
+                <div class="infoItemButton">week06-lecture11-decision-trees-random-forests</div>
+                <div class="infoItemButton">week07-lab06-1-machine-learning-2-classification-redux</div>
+                <div class="infoItemButton">week07-lab06-2-machine-learning-2-comparing-models</div>
+                <div class="infoItemButton">week07-lecture12-ensemble-methods</div>
+                <div class="infoItemButton">week07-lecture13-best-practices</div>
+                <div class="infoItemButton">week08-lab07-ensembles</div>
+                <div class="infoItemButton">week08-lecture14-best-practices-recommendations-mapreduce</div>
+                <div class="infoItemButton">week08-lecture15-mapreduce-combiners-spark</div>
+                <div class="infoItemButton">week09-lab08-vagrant-virtualbox-aws-spark</div>
+                <div class="infoItemButton">week09-lecture16-bayes-theorem-bayesian-methods</div>
+                <div class="infoItemButton">week09-lecture17-bayesian-methods-continued</div>
+                <div class="infoItemButton">week10-lab09-1-bayes-bayes-1</div>
+                <div class="infoItemButton">week10-lab09-2-bayes-bayes-2</div>
+                <div class="infoItemButton">week10-lecture18-bayesian-methods-continued-text-data</div>
+                <div class="infoItemButton">week10-lecture18-bonus-interactive-visualization</div>
+                <div class="infoItemButton">week11-lab10-text-clustering</div>
+                <div class="infoItemButton">week11-lecture19-clustering</div>
+                <div class="infoItemButton">week11-lecture20-effective</div>
+                <div class="infoItemButton">week11-lecture20-effectives</div>
+                <div class="infoItemButton">week12-lab11-projects-example</div>
+                <div class="infoItemButton">week12-lecture21-experimental-design</div>
+                <div class="infoItemButton">week12-lecture22-deep-networks</div>
+                <div class="infoItemButton">week13-lecture23-guest-lecture-building-data-science</div>
+                <div class="infoItemButton">week13-lecture24-wrapup-where-to-go-from-here</div>
+            </div>
+        </div>
+    </article>
+    <script>
+    var addEvent = (function() {
+        if (document.addEventListener) {
+            return function(el, type, fn) {
+                if (el && el.nodeName || el === window) {
+                    el.addEventListener(type, fn, false);
+                } else if (el && el.length) {
+                    for (var i = 0; i < el.length; i++) {
+                        addEvent(el[i], type, fn);
+                    }
+                }
+            };
+        } else {
+            return function(el, type, fn) {
+                if (el && el.nodeName || el === window) {
+                    el.attachEvent('on' + type, function() { return fn.call(el, window.event); });
+                } else if (el && el.length) {
+                    for (var i = 0; i < el.length; i++) {
+                        addEvent(el[i], type, fn);
+                    }
+                }
+            };
+        }
+    })();
+
+    var video = document.querySelector('#one'),
+        video2 = document.querySelector('#two'),
+        togglePlay = document.querySelector('#playpause'),
+        position = document.querySelector('#position'),
+        ready = false,
+        controls = document.querySelector('#controls'),
+        scrub = document.querySelector('#scrub'),
+        scrubbing = false,
+        playlist = document.querySelector('#playlist_btn'),
+        pl_popup = document.querySelector('.buttonPluginPopUp'),
+        vsrc_list = document.querySelectorAll('.infoItemButton'),
+        play_rate = document.querySelector('#play_rate'),
+        play_rates = [1, 1.25, 1.5],
+        video_title = document.querySelector('#video_title'),
+        forward = document.querySelector('#forward'),
+        rewind = document.querySelector('#rewind');
+
+    function loadVideo(s) {
+        s = './Videos/' + s;
+        vsrc = document.createElement('source');
+        vsrc.setAttribute('src', s + '-presentation.mp4');
+        video.appendChild(vsrc);
+        video.load();
+
+        vsrc2 = document.createElement('source');
+        vsrc2.setAttribute('src', s + '-presenter.mp4');
+        video2.appendChild(vsrc2);
+        video2.load();
+
+        play_rate_update();
+        video_title.textContent = s;
+        document.title = 'CS109' + ' - ' + s;
+    }
+
+    loadVideo(vsrc_list[0].textContent);
+
+    for (var i = vsrc_list.length - 1; i >= 0; i--) {
+        addEvent(vsrc_list[i], 'click', function() {
+            togglePlay.checked = true;
+            video.pause();
+            while (video.firstChild) {
+                video.removeChild(video.firstChild);
+            }
+            while (video2.firstChild) {
+                video2.removeChild(video2.firstChild);
+            }
+            loadVideo(this.textContent);
+        })
+    }
+
+    addEvent(forward, 'click', function() {
+        video.currentTime += 10;
+    })
+
+    addEvent(rewind, 'click', function() {
+        video.currentTime -= 10;
+    })
+
+    addEvent(playlist, 'click', function() {
+        pl_popup.classList.toggle('playlist_show');
+    })
+
+    pl_popup.onmouseleave = function() {
+        if (pl_popup.classList.contains('playlist_show'))
+            pl_popup.classList.remove('playlist_show');
+    }
+
+    addEvent(play_rate, 'click', function() {
+        r = parseFloat(play_rate.getAttribute('rate'));
+        r = play_rates[(play_rates.indexOf(r) + 1) % play_rates.length];
+        this.setAttribute('rate', r);
+        this.textContent = r + 'x';
+        play_rate_update(r);
+    })
+
+    function play_rate_update() {
+        r = parseFloat(play_rate.getAttribute('rate'));
+        video.playbackRate = r;
+        video2.playbackRate = r;
+    }
+
+    function vswitch(e) {
+        addEvent(e, 'click', function() {
+            if (this.classList.contains('master_video')) {
+                mv = document.querySelector('.master_video');
+                sv = document.querySelector('.slave_video');
+                if (sv.classList.contains('slave_video_rb')) {
+                    console.log('rb');
+                    sv.classList.remove('slave_video_rb');
+                    mv.classList.add('slave_video_rb');
+                }
+                mv.classList.remove('master_video');
+                mv.classList.add('slave_video');
+                sv.classList.remove('slave_video');
+                sv.classList.add('master_video');
+            } else {
+                sv = document.querySelector('.slave_video');
+                sv.classList.toggle('slave_video_rb');
+            }
+        })
+    }
+
+    vswitch(video);
+    vswitch(video2);
+
+    scrub.onmousedown = function() {
+        scrubbing = true;
+    }
+
+    scrub.onmouseup = function() {
+        scrubbing = false;
+    }
+
+    addEvent(togglePlay, 'click', function() {
+        if (ready) {
+            if (video.paused) {
+                if (video.ended) {
+                    video.currentTime = 0;
+                    video2.currentTime = 0;
+                }
+                video2.currentTime = video.currentTime;
+                video.play();
+                this.value = "pause";
+            } else {
+                video.pause();
+                this.value = "play";
+            }
+        }
+    });
+
+    function seek() {
+        scrub.value = video2.currentTime = this.currentTime;
+    }
+
+    addEvent(video, 'seeking', seek);
+    addEvent(video, 'seeked', seek);
+
+    addEvent(video, 'play', function() {
+        togglePlay.checked = false;
+        video2.play();
+    });
+
+    addEvent(video, 'pause', function() {
+        togglePlay.checked = true;
+        video2.pause();
+    })
+
+    addEvent(video, 'timeupdate', function() {
+        position.innerHTML = asTime(this.currentTime);
+        if (scrubbing == false)
+            scrub.value = this.currentTime;
+    });
+
+    addEvent(video, 'ended', function() {
+        togglePlay.checked = true;
+    });
+
+    addEvent(video, 'canplay', function() {
+        video.muted = true;
+        ready = true;
+        document.querySelector('#duration').innerHTML = asTime(this.duration);
+
+        scrub.setAttribute('max', this.duration);
+        addEvent(scrub, 'change', function() {
+            video.currentTime = this.value;
+            video2.currentTime = this.value;
+        });
+    });
+
+    function asTime(t) {
+        t = Math.round(t);
+        var s = t % 60;
+        var m = Math.round(t / 60);
+
+        return two(m) + ':' + two(s);
+    }
+
+    function two(s) {
+        s += "";
+        if (s.length < 2) s = "0" + s;
+        return s;
+    }
+    </script>
+</body>
+
+</html>
